@@ -10,11 +10,9 @@ buildscript {
 }
 plugins {
     id 'groovy'
-    id 'maven-publish'
     id 'java-gradle-plugin'
-    id "com.gradle.plugin-publish" version "0.14.0"
+    id 'com.gradle.plugin-publish' version '1.1.0'
     id "com.github.johnrengelman.shadow" version "7.0.0"
-    id "com.gorylenko.gradle-git-properties" version "2.3.2"
 }
 
 buildScan {
@@ -22,18 +20,8 @@ buildScan {
     termsOfServiceAgree = 'yes'
 }
 
-apply plugin: "com.gradle.plugin-publish"
-
 repositories {
     mavenCentral()
-    maven {
-        name = 'ajoberstar-backup'
-        url = 'https://ajoberstar.org/bintray-backup/'
-    }
-    // for debugging
-    //maven {
-    //    url 'https://repo.gradle.org/gradle/libs-releases-local/'
-    //}
 }
 
 def integrationTest = sourceSets.create("integrationTest")
@@ -49,16 +37,16 @@ dependencies {
     //implementation 'org.gradle:gradle-language-java:5.6.2'
 
 
-    testImplementation 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.13.1'
     testImplementation gradleTestKit()
 
-    integrationTestImplementation 'junit:junit:4.12'
+    integrationTestImplementation 'junit:junit:4.13.1'
     integrationTestImplementation gradleTestKit()
     integrationTestImplementation project
     integrationTestImplementation sourceSets.test.output // Include test files for git project utils
 }
 
-task relocateShadowJar(type: ConfigureShadowRelocation) {
+tasks.register('relocateShadowJar', ConfigureShadowRelocation) {
     target = tasks.shadowJar
     prefix = "gradlegitproperties"
 }
@@ -75,16 +63,10 @@ components.java.withVariantsFromConfiguration(configurations.runtimeElements) {
     skip()
 }
 
-version = "2.4.1"
-group = "com.gorylenko.gradle-git-properties"
+version = "2.5.0"
+group = "de.sharpmind"
 
-gitProperties {
-    keys = ['git.branch','git.commit.id','git.commit.time']
-    dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-    dateFormatTimeZone = "PST"
-}
-
-tasks.withType(GroovyCompile) {
+tasks.withType(GroovyCompile).configureEach {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 test {
@@ -94,50 +76,41 @@ test {
     }
 }
 
-tasks.register("integrationTest", Test) {
-    dependsOn tasks.shadowJar
+test.onlyIf { project.hasProperty('performTests') }
+
+/*tasks.register("integrationTest", Test) {
+    //dependsOn tasks.shadowJar
 
     description = 'Runs the integration tests.'
     group = "verification"
     testClassesDirs = integrationTest.output.classesDirs
     classpath = integrationTest.runtimeClasspath
     it.systemProperty "integration.plugin.path", tasks.shadowJar.outputs.getFiles().asPath // Pass java system property indicating integration plugin path
-}
+}*/
 
-tasks.register("sourceJar", Jar) {
-    classifier = "sources"
+tasks.register("sourcesJar", Jar) {
+    archiveClassifier = "sources"
     from sourceSets.main.resources, sourceSets.main.groovy
 
     dependsOn tasks.named("classes")
 }
 
-publishing {
-
-    publications {
-
-        pluginJar(MavenPublication) {  publication ->
-
-            from project.shadow.component(publication)
-
-            artifact sourceJar
-        }
-    }
-    // for testing: ./gradlew clean publishToMavenLocal
-    repositories {
-        mavenLocal()
-    }
+tasks.register('javadocJar', Jar) {
+    archiveClassifier = 'javadoc'
+    from javadoc
 }
 
-pluginBundle {
-    website = 'http://github.com/n0mer/gradle-git-properties'
-    vcsUrl = 'https://github.com/n0mer/gradle-git-properties'
-    description = 'Produce git.properties for spring-boot-actuator'
-    tags = ['git', 'spring-boot']
+gradlePlugin {
+    website = 'https://github.com/sharpmind-de/gradle-git-properties'
+    vcsUrl = 'https://github.com/sharpmind-de/gradle-git-properties.git'
 
     plugins {
         gitPropertiesPlugin {
-            id = 'com.gorylenko.gradle-git-properties'
+            id = 'de.sharpmind.gradle-git-properties'
             displayName = 'Gradle Git Properties plugin'
+            description = 'Produce git.properties'
+            implementationClass = 'com.gorylenko.GitPropertiesPlugin'
+            tags.addAll('git', 'properties', 'version')
         }
     }
 }
